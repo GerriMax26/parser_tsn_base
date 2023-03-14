@@ -1,9 +1,14 @@
 import xlsxwriter
+import os
+
 
 def writer_1 (function_name, name_page) -> None:
    """Сreating an excel file and writing the received information to it"""
    
-   book = xlsxwriter.Workbook(r"C:/Users/admin/Desktop/parser_tsn_base/prodaja_kvartiri.xlsx")
+   path = os.path.abspath(os.path.dirname(__file__)) + '\prodaja_kvartiri.xlsx'
+   
+   book = xlsxwriter.Workbook(path)
+   
    page = book.add_worksheet(name_page)
             
    page.set_column("A:A", 40)
