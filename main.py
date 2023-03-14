@@ -1,26 +1,33 @@
+import os
+import datetime
+
 import requests
 import fake_useragent
 from bs4 import BeautifulSoup
-from create_excel_file_1 import writer_1
-import datetime
-from yandex import create_folder
-from yandex import upload_file
-import os
 from dotenv import load_dotenv
 
-#Определяем текущую дату и текущаяя дата минус 14 дней
+from create_excel_file_1 import writer_1
+from yandex import create_folder
+from yandex import upload_file
+
 
 load_dotenv()
 
-dl = datetime.datetime.today()
+def generate_date() -> list:
+    """Generate start and end date"""
+    
+    date_start = datetime.datetime.today()
 
-dl2 = dl + datetime.timedelta (days = -14)
+    date_end = date_start + datetime.timedelta (days = -14)
 
-dl2 = str(dl2)
+    date_end = str(date_end)
 
-new_dl2 = dl2[8]+dl2[9]+'/'+dl2[5]+dl2[6]+'/'+dl2[0]+dl2[1]+dl2[2]+dl2[3]
+    new_date_end = date_end[8]+date_end[9]+'/'+date_end[5]+date_end[6]+'/'+date_end[0]+date_end[1]+date_end[2]+date_end[3]
 
-dl = dl.strftime('%d/%m/%Y')
+    date_start = date_start.strftime('%d/%m/%Y')
+    
+    return [date_start,new_date_end]
+
 
 
 session = requests.Session()
@@ -37,43 +44,52 @@ data = {
     'login': os.getenv('login'),
     'password': os.getenv('password')
 }
-#Все что выше для авторизации и создании сесии, чтобы не пришлось авторизовываться каждый раз при новом запросе
-response = session.post(link,data = data, headers = header)
 
-soup = BeautifulSoup(response.text, 'lxml')
 
-main_data = soup.find('table', class_= 'toprow')
+def get_links() -> list:
 
-tbody = main_data.find('tr')
+    response = session.post(link,data = data, headers = header)
 
-tr = tbody.find('td', class_ = 'leftcolomn')
+    soup = BeautifulSoup(response.text, 'lxml')
 
-div_menu = tr.find('div',class_ = 'menu')
+    main_data = soup.find('table', class_= 'toprow')
 
-#Все что выше, получаем доступ к левой менюшке, чтобы достать оттуда ссылки на определенные категории
+    tbody = main_data.find('tr')
 
-div_submenu = div_menu.find_all('div',class_ = 'submenu')
+    tr = tbody.find('td', class_ = 'leftcolomn')
 
-array_link = []
+    div_menu = tr.find('div',class_ = 'menu')
 
-for i in range(len(div_submenu)):
-    
-    all_a = div_submenu[i].find_all('a')
-    
-    for j in range(len(all_a)):
+    div_submenu = div_menu.find_all('div',class_ = 'submenu')
+
+    array_links: list = []
+
+    for i in range(len(div_submenu)):
         
-        array_link.append('http://www.tsnbase.ru' + all_a[j].get('href'))
+        all_a: str = div_submenu[i].find_all('a')
+        
+        for j in range(len(all_a)):
+            
+            array_links.append('http://www.tsnbase.ru' + all_a[j].get('href'))
+
+    return array_links
 
 
 def parser_flats(): #Парсим Жилая недвижимость(продажа)->Квартиры
     
-    flag_header = True #Для проверки, что уже спарсили оглавление
+    array_date_start_end: list = generate_date()
+
+    date_start: str = array_date_start_end[0]
+
+    date_end: str = array_date_start_end[1]
     
-    array_number_page = [] #Массив для номеров страниц
+    flag_header: bool = True #Для проверки, что уже спарсили оглавление
     
-    url = 'http://www.tsnbase.ru/result_flats'
+    array_number_page: list = [] 
     
-    array_text = [] #Массив, в который будем помещать текст из таблицы
+    url: str = 'http://www.tsnbase.ru/result_flats'
+    
+    array_text: list = [] #Массив, в который будем помещать текст из таблицы
     
     
     response = session.get(url,headers = header)
@@ -98,7 +114,8 @@ def parser_flats(): #Парсим Жилая недвижимость(прода
     #Все что выше, нужно для получение инфы о количестве страниц найденных
     
     for n in range(1,amount_page + 1):
-        data = {
+        
+        data: dict = {
             'ad_form_type': 0,
             'start': n,
             'sort': 0,
@@ -106,8 +123,8 @@ def parser_flats(): #Парсим Жилая недвижимость(прода
             'ad_form_type':0,
             'sorttype': 0,
             'sortordtype': 1,
-            'date_from': new_dl2,
-            'date_to': dl   
+            'date_from': date_end,
+            'date_to': date_start 
         }
         
         response = session.post(url,data = data,headers = header)
@@ -126,14 +143,20 @@ def parser_flats(): #Парсим Жилая недвижимость(прода
         for i in range(len(all_tr)):
             
             all_td = all_tr[i].find_all('td')
-            flag_if = True
             
-            if(len(all_td) > 4): 
+            flag_if: bool = True
+            
+            if(len(all_td) > 4):
+                 
                 for j in range(3,len(all_td)):
-                    if(all_td[j].text == 'Обн.' and flag_header):    
+                    
+                    if(all_td[j].text == 'Обн.' and flag_header):
+                            
                         array_text.append(all_td[j].text)
+                        
                     elif (all_td[j].text == 'Обн.' and (not flag_header)):
-                        flag_if = False
+                        
+                        flag_if: bool = False
                         break
                     else:
                         array_text.append(all_td[j].text)
@@ -160,51 +183,66 @@ def parser_flats(): #Парсим Жилая недвижимость(прода
                     phone = array_text[15]
                     comment = array_text[16]
                     array_text = []
+                    
                     yield date_update,number_of_rooms,adress,subway,floor,house,S_all,S_living,S_room,tv,s_u,sd,price,credit,agent,phone,comment
             else:
                 continue
+
+def main() -> None:
+    
+    array_date_start_end: list = generate_date()
+
+    date_start: str = array_date_start_end[0]
+    
+    array_links: str = get_links()
+
+    for i in range(len(array_links)):
         
-for i in range(len(array_link)):
-    if(array_link[i] == 'http://www.tsnbase.ru/search_flats'):
-        writer_1(parser_flats,'Продажа-Квартиры')
-        
-        path = '7.Для IT BackUP/BackUp Bitrix24/Квартирник/'
-        dl = dl.replace('/','.')
-        create_folder(f'{path}{dl}')
-        path = path+dl+'/'
-        upload_file(path)
-        
-    elif(array_link[i] == 'http://www.tsnbase.ru/search_rooms'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/search_flats?type[3]=3'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/result_flats1'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/result_rooms1'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/search_rent'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/search_daily'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/search_lease'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/dispatch'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.rusearch_of'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.rusearch_sk'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.rusearch_uch.php'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.rusearch_osz.php'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/search_cotts'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/list'):
-        pass
-    elif(array_link[i] == 'http://www.tsnbase.ru/save_request'):
-        pass
+        if(array_links[i] == 'http://www.tsnbase.ru/search_flats'):
+            
+            writer_1(parser_flats,'Продажа-Квартиры')
+            
+            path: str = '7.Для IT BackUP/BackUp Bitrix24/Квартирник/'
+            
+            date_start: str = date_start.replace('/','.')
+            
+            create_folder(f'{path}{date_start}')
+            
+            path: str = path + date_start + '/'
+            
+            upload_file(path)
+            
+        elif(array_links[i] == 'http://www.tsnbase.ru/search_rooms'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/search_flats?type[3]=3'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/result_flats1'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/result_rooms1'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/search_rent'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/search_daily'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/search_lease'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/dispatch'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.rusearch_of'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.rusearch_sk'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.rusearch_uch.php'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.rusearch_osz.php'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/search_cotts'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/list'):
+            pass
+        elif(array_links[i] == 'http://www.tsnbase.ru/save_request'):
+            pass
 
 
-
- 
+if __name__ == '__main__':
+    main()
