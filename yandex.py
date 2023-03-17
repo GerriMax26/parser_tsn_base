@@ -21,5 +21,8 @@ def create_folder(path) -> None:
 def upload_file(path) -> None:
     """Uploading a file to disk"""
     
+    path_ = os.path.abspath(os.path.dirname(__file__)) + '\prodaja_kvartiri.xlsx'
+    
     y = yadisk.YaDisk(token=TOKEN)
-    y.upload('C:/Users/admin/Desktop/parser_tsn_base/prodaja_kvartiri.xlsx', f'{path}prodaja_kvartiri.xlsx')
+    y.upload(path_, f'{path}prodaja_kvartiri.xlsx')
+    
